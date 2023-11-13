@@ -36,7 +36,11 @@ resource "aws_iam_role" "ecs_task_exec_role" {
  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
 }
 
-
+/*resource "aws_iam_role" "ecs_access_ecr_role" {
+  name               = "ecr-role"
+  assume_role_policy = data.aws_iam_policy_document.ecr-access-policy.json
+}
+*/
 data "aws_iam_policy_document" "assume_role_policy" {
  statement {
    actions = ["sts:AssumeRole"]
@@ -55,8 +59,32 @@ resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+/*resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_ecrPolicy" {
+  role       = aws_iam_role.ecs_access_ecr_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
 
+data "aws_iam_policy_document" "ecr-access-policy" {
+  statement {
+    effect = "Allow"
 
+    actions = [
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:DescribeRepositories",
+      "ecr:GetRepositoryPolicy",
+      "ecr:ListImages",
+    ]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+
+  }
+}
+*/
 resource "aws_ecs_service" "fiap-food-ecs-service" {
  name                = var.cluster_service
  cluster             = aws_ecs_cluster.ecs_cluster.id
@@ -131,6 +159,3 @@ output "apigw_endpoint" {
   value = aws_apigatewayv2_api.apigw_http_endpoint.api_endpoint
   description = "API Gateway Endpoint"
 }
-
-
-
