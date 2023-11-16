@@ -4,8 +4,6 @@ resource "aws_security_group" "lb_security_group" {
   description = "SG-ALB-Fiap-Food"
   vpc_id = aws_vpc.fiap-food-vpc.id
 
-  tags = merge(local.common_tags, { Name : "Terraform ECS ALB-SG" })
-
 }
 
 resource "aws_security_group_rule" "sg_ingress_rule_all_to_lb" {
@@ -23,8 +21,8 @@ resource "aws_security_group_rule" "sg_ingress_rule_all_to_lb" {
 resource "aws_security_group_rule" "sg_egress_rule_lb_to_ecs_cluster" {
   type	= "egress"
   description = "Target group egress"
-  from_port         = 80
-  to_port           = 80
+  from_port         = 8080
+  to_port           = 8080
   protocol          = "tcp"
   security_group_id = aws_security_group.lb_security_group.id
   source_security_group_id = aws_security_group.ecs_security_group.id
@@ -36,12 +34,12 @@ resource "aws_security_group" "ecs_security_group" {
   description = "Terraform-ECS-Fiap-Food SG"
   vpc_id      = aws_vpc.fiap-food-vpc.id
 
- ## ingress {
- ##   protocol        = "tcp"
- ##   from_port       = var.container_port
- ##   to_port         = var.container_port
- ##   security_groups = [aws_security_group.alb.id]
- ## }
+  ingress {
+    protocol        = "tcp"
+    from_port       = var.container_port
+    to_port         = var.container_port
+    security_groups = [aws_security_group.lb_security_group.id]
+  }
 
 
   egress {
@@ -50,15 +48,4 @@ resource "aws_security_group" "ecs_security_group" {
     to_port     = 0
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
-
-# ECS cluster security group ingress from the load balancer.
-resource "aws_security_group_rule" "sg_ingress_rule_ecs_cluster_from_lb" {
-  type	= "ingress"
-  description = "Ingress from Load Balancer"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  security_group_id = aws_security_group.ecs_security_group.id
-  source_security_group_id = aws_security_group.lb_security_group.id
 }

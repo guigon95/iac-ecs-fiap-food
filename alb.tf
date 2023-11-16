@@ -4,10 +4,7 @@ resource "aws_lb" "ecs_alb" {
  security_groups    = [aws_security_group.lb_security_group.id]
  load_balancer_type = "application"
  internal = true
- subnets = [aws_subnet.fiap-food-private-subnet["priv_a"].id, aws_subnet.fiap-food-private-subnet["priv_b"].id]
-
- tags = merge(local.common_tags, { Name = "Terraform ECS ALB" })
-
+ subnets =  [for subnet in aws_subnet.fiap-food-public-subnet : subnet.id]
 
 }
 
@@ -26,7 +23,7 @@ resource "aws_lb_target_group" "alb_ecs_tg" {
    protocol            = "HTTP"
    matcher             = "200,301,302"
    path                = "/actuator/health"
-   timeout             = "5"
+   timeout             = "15"
    unhealthy_threshold = "5"
  }
 }

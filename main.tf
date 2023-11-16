@@ -3,14 +3,21 @@ resource "aws_ecs_cluster" "ecs_cluster" {
  name = var.cluster_name
 }
 
-
 resource "aws_ecs_task_definition" "ecs_task_def" {
  family                   = var.cluster_task
  container_definitions    = <<DEFINITION
  [
    {
      "name": "${var.cluster_task}",
-     "image": "${var.image_url}",
+     "image": "${aws_ecr_repository.fiap-food.repository_url}:latest",
+      "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+               "awslogs-group" : "ecs-logs",
+               "awslogs-region": "us-east-2",
+               "awslogs-stream-prefix": "ecs"
+            }
+      },
      "essential": true,
      "portMappings": [
        {
@@ -36,11 +43,7 @@ resource "aws_iam_role" "ecs_task_exec_role" {
  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
 }
 
-/*resource "aws_iam_role" "ecs_access_ecr_role" {
-  name               = "ecr-role"
-  assume_role_policy = data.aws_iam_policy_document.ecr-access-policy.json
-}
-*/
+
 data "aws_iam_policy_document" "assume_role_policy" {
  statement {
    actions = ["sts:AssumeRole"]
@@ -53,38 +56,11 @@ data "aws_iam_policy_document" "assume_role_policy" {
  }
 }
 
-
 resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
  role       = aws_iam_role.ecs_task_exec_role.name
  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-/*resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_ecrPolicy" {
-  role       = aws_iam_role.ecs_access_ecr_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-data "aws_iam_policy_document" "ecr-access-policy" {
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "ecr:GetDownloadUrlForLayer",
-      "ecr:BatchGetImage",
-      "ecr:BatchCheckLayerAvailability",
-      "ecr:DescribeRepositories",
-      "ecr:GetRepositoryPolicy",
-      "ecr:ListImages",
-    ]
-
-    principals {
-      type        = "Service"
-      identifiers = ["ecs-tasks.amazonaws.com"]
-    }
-
-  }
-}
-*/
 resource "aws_ecs_service" "fiap-food-ecs-service" {
  name                = var.cluster_service
  cluster             = aws_ecs_cluster.ecs_cluster.id
@@ -103,7 +79,7 @@ resource "aws_ecs_service" "fiap-food-ecs-service" {
 
 
  network_configuration {
-   subnets          = [aws_subnet.fiap-food-private-subnet["priv_a"].id, aws_subnet.fiap-food-private-subnet["priv_b"].id]
+   subnets          = [for subnet in aws_subnet.fiap-food-private-subnet : subnet.id]
    security_groups  = [aws_security_group.ecs_security_group.id]
  }
 }
@@ -112,50 +88,50 @@ resource "aws_ecs_service" "fiap-food-ecs-service" {
 resource "aws_apigatewayv2_vpc_link" "vpclink_apigw_to_alb" {
   name        = "vpclink_apigw_to_alb"
   security_group_ids = []
-  subnet_ids = [aws_subnet.fiap-food-private-subnet["priv_a"].id, aws_subnet.fiap-food-private-subnet["priv_b"].id]
+
+  subnet_ids = [for subnet in aws_subnet.fiap-food-public-subnet : subnet.id]
 }
 
-# Create the API Gateway HTTP endpoint
-resource "aws_apigatewayv2_api" "apigw_http_endpoint" {
-  name          = "serverlessland-pvt-endpoint"
-  protocol_type = "HTTP"
+# IGW for the public subnet
+resource "aws_internet_gateway" "fiap-food-internet-gateway" {
+  vpc_id = aws_vpc.fiap-food-vpc.id
 }
 
-# Create the API Gateway HTTP_PROXY integration between the created API and the private load balancer via the VPC Link.
-# Ensure that the 'DependsOn' attribute has the VPC Link dependency.
-# This is to ensure that the VPC Link is created successfully before the integration and the API GW routes are created.
-resource "aws_apigatewayv2_integration" "apigw_integration" {
-  api_id           = aws_apigatewayv2_api.apigw_http_endpoint.id
-  integration_type = "HTTP_PROXY"
-  integration_uri  = aws_lb_listener.ecs_alb_listener.arn
-
-  integration_method = "ANY"
-  connection_type    = "VPC_LINK"
-  connection_id      = aws_apigatewayv2_vpc_link.vpclink_apigw_to_alb.id
-  payload_format_version = "1.0"
-  depends_on      = [aws_apigatewayv2_vpc_link.vpclink_apigw_to_alb,
-    aws_apigatewayv2_api.apigw_http_endpoint,
-    aws_lb_listener.ecs_alb_listener]
+# Route the public subnet traffic through the IGW
+resource "aws_route" "internet_access" {
+  route_table_id         = "${aws_vpc.fiap-food-vpc.main_route_table_id}"
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = "${aws_internet_gateway.fiap-food-internet-gateway.id}"
 }
 
-# API GW route with ANY method
-resource "aws_apigatewayv2_route" "apigw_route" {
-  api_id    = aws_apigatewayv2_api.apigw_http_endpoint.id
-  route_key = "ANY /{proxy+}"
-  target = "integrations/${aws_apigatewayv2_integration.apigw_integration.id}"
-  depends_on  = [aws_apigatewayv2_integration.apigw_integration]
+# Create a NAT gateway with an EIP for each private subnet to get internet connectivity
+resource "aws_eip" "gw" {
+  count      = 2
+  domain        = "vpc"
+  depends_on = [aws_internet_gateway.fiap-food-internet-gateway]
 }
 
-# Set a default stage
-resource "aws_apigatewayv2_stage" "apigw_stage" {
-  api_id = aws_apigatewayv2_api.apigw_http_endpoint.id
-  name   = "$default"
-  auto_deploy = true
-  depends_on  = [aws_apigatewayv2_api.apigw_http_endpoint]
+resource "aws_nat_gateway" "fiap-food-nat-gateway" {
+  count      = 2
+  subnet_id     = "${element(aws_subnet.fiap-food-public-subnet.*.id, count.index)}"
+  allocation_id = "${element(aws_eip.gw.*.id, count.index)}"
 }
 
-# Generated API GW endpoint URL that can be used to access the application running on a private ECS Fargate cluster.
-output "apigw_endpoint" {
-  value = aws_apigatewayv2_api.apigw_http_endpoint.api_endpoint
-  description = "API Gateway Endpoint"
+# Create a new route table for the private subnets
+# And make it route non-local traffic through the NAT gateway to the internet
+resource "aws_route_table" "private" {
+  count  = 2
+  vpc_id = aws_vpc.fiap-food-vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = "${element(aws_nat_gateway.fiap-food-nat-gateway.*.id, count.index)}"
+  }
+}
+
+# Explicitely associate the newly created route tables to the private subnets (so they don't default to the main route table)
+resource "aws_route_table_association" "private" {
+  count          = 2
+  subnet_id      = "${element(aws_subnet.fiap-food-private-subnet.*.id, count.index)}"
+  route_table_id = "${element(aws_route_table.private.*.id, count.index)}"
 }
