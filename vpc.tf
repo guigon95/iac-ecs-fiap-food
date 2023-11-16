@@ -3,24 +3,26 @@ resource "aws_vpc" "fiap-food-vpc" {
  enable_dns_support   = true
  enable_dns_hostnames = true
 
+}
 
- tags = merge(local.common_tags, { Name : "Terraform-ECS-Fiap-Food VPC" })
+data "aws_availability_zones" "available" {
+ state = "available"
 }
 
 
-
+# Create var.az_count private subnets, each in a different AZ
 resource "aws_subnet" "fiap-food-private-subnet" {
- for_each = {
-  "priv_a" : ["192.168.1.0/24", "${var.aws_region}a", "Private A"]
-  "priv_b" : ["192.168.2.0/24", "${var.aws_region}b", "Private B"]
- }
-
- vpc_id            = aws_vpc.fiap-food-vpc.id
- cidr_block        = each.value[0]
- availability_zone = each.value[1]
-
-
- tags = merge(local.common_tags, { Name : "Private A" })
+ count             = 2
+ cidr_block        = "${cidrsubnet(aws_vpc.fiap-food-vpc.cidr_block, 8, count.index)}"
+ availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
+ vpc_id            =  aws_vpc.fiap-food-vpc.id
 }
 
-
+# Create var.az_count public subnets, each in a different AZ
+resource "aws_subnet" "fiap-food-public-subnet" {
+ count                   = 2
+ cidr_block              = "${cidrsubnet(aws_vpc.fiap-food-vpc.cidr_block, 8, 2 + count.index)}"
+ availability_zone       = "${data.aws_availability_zones.available.names[count.index]}"
+ vpc_id                  = "${aws_vpc.fiap-food-vpc.id}"
+ map_public_ip_on_launch = true
+}
