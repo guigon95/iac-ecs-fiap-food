@@ -1,15 +1,20 @@
-variable "aws_access_key" {
-  type        = string
-  description = "use env aws keys"
-}
-
-variable "aws_secret_key" {
-  type        = string
-  description = "use env aws keys"
-}
-
 variable "aws_region" {
+  description = "AWS region for all resources."
+
+  type    = string
   default = "us-east-2"
+}
+
+variable "account_id" {
+  type    = string
+}
+
+variable "access_key" {
+  type    = string
+}
+
+variable "secret_key" {
+  type    = string
 }
 
 variable "desired_capacity" {
@@ -26,11 +31,11 @@ variable "image_url" {
 }
 
 variable "memory" {
-  default = "2048"
+  default = "512"
 }
 
 variable "cpu" {
-  default = "512"
+  default = "256"
 }
 
 variable "cluster_name" {
