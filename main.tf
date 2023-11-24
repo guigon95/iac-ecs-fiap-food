@@ -1,7 +1,3 @@
-provider "aws" {
-  region = var.aws_region
-}
-
 # Create the ECS Cluster and Fargate launch type service in the private subnets
 resource "aws_ecs_cluster" "ecs_cluster" {
  name = var.cluster_name
