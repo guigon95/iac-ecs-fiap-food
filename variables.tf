@@ -27,7 +27,7 @@ variable "container_port" {
 }
 
 variable "image_url" {
-  default = "860076335049.dkr.ecr.us-east-2.amazonaws.com/fiapfood:latest"
+  default = "860076335049.dkr.ecr.us-east-2.amazonaws.com/fiap-food:latest"
 }
 
 variable "memory" {
