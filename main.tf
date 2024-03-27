@@ -10,6 +10,16 @@ resource "aws_ecs_task_definition" "ecs_task_def" {
    {
      "name": "${var.cluster_task}",
      "image": "${aws_ecr_repository.fiap-food.repository_url}:latest",
+     "environment": [
+       {
+          "name": "aws.key",
+          "value": "${var.access_key}"
+       },
+       {
+          "name": "aws.secret",
+          "value": "${var.secret_key}"
+       }
+     ],
       "logConfiguration": {
             "logDriver": "awslogs",
             "options": {
