@@ -1,6 +1,6 @@
 # Create the internal application load balancer (ALB) in the private subnets.
 resource "aws_lb" "ecs_alb" {
- name               = "Terraform-ECS-Fiap-Food-ALB"
+ name               = "Terraform-Order-Fiap-Food-ALB"
  security_groups    = [aws_security_group.lb_security_group.id]
  load_balancer_type = "application"
  internal = true
