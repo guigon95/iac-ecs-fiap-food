@@ -11,7 +11,7 @@ terraform {
 
   backend "s3" {
     bucket = "terraforms-bucket"
-    key    = "states-ecs"
+    key    = "states-order-fiap-food"
     region = "us-east-2"
   }
 }
