@@ -39,12 +39,12 @@ variable "cpu" {
 }
 
 variable "cluster_name" {
-  default = "fiap-food-cluster"
+  default = "order-fiap-food-cluster"
 }
 
 variable "cluster_task" {
-  default = "fiap-food-task"
+  default = "order-fiap-food-task"
 }
 variable "cluster_service" {
-  default = "fiap-food-service"
+  default = "order-fiap-food-service"
 }

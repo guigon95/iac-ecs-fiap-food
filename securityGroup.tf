@@ -30,8 +30,8 @@ resource "aws_security_group_rule" "sg_egress_rule_lb_to_ecs_cluster" {
 
 # ECS cluster security group.
 resource "aws_security_group" "ecs_security_group" {
-  name        = "Terraform-ECS-Fiap-Food TASK SG"
-  description = "Terraform-ECS-Fiap-Food SG"
+  name        = "Terraform-ECS-Order-Fiap-Food TASK SG"
+  description = "Terraform-ECS-Order-Fiap-Food SG"
   vpc_id      = aws_vpc.fiap-food-vpc.id
 
   ingress {
